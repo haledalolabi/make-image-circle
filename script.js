@@ -77,15 +77,25 @@ document.addEventListener('DOMContentLoaded', function() {
     function processImages() {
       const zip = new JSZip();
       let processedCount = 0;
+      
+      // Работим при 600 DPI за високо качество за печат
+      const DPI = 600;
+      // Изчисляване на размера на A4 (210 x 297 мм) в пиксели
+      const A4_WIDTH = Math.round(210 * (DPI / 25.4));
+      const A4_HEIGHT = Math.round(297 * (DPI / 25.4));
+      // Пресмятаме диаметъра за 182 мм в пиксели
+      const MM_TO_PX = DPI / 25.4;
+      const diameter = Math.round(182 * MM_TO_PX);
+      const radius = diameter / 2;
+      const centerX = A4_WIDTH / 2;
+      const centerY = A4_HEIGHT / 2;
     
       filesArray.forEach(file => {
         const reader = new FileReader();
         reader.onload = (e) => {
           const img = new Image();
           img.onload = () => {
-            // Създаване на canvas с размери A4 при 300 DPI (2480 x 3508 пиксела)
-            const A4_WIDTH = 2480;
-            const A4_HEIGHT = 3508;
+            // Създаване на canvas с размери A4 при 600 DPI
             const canvas = document.createElement('canvas');
             canvas.width = A4_WIDTH;
             canvas.height = A4_HEIGHT;
@@ -99,21 +109,15 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
     
-            // Пресмятаме диаметъра в пиксели за 175 мм
-            const MM_TO_PX = 300 / 25.4;  
-            const diameter = 185 * MM_TO_PX; // фиксиран диаметър от 175 мм (~2067 пиксела)
-            const radius = diameter / 2;
-            const centerX = A4_WIDTH / 2;
-            const centerY = A4_HEIGHT / 2;
-    
-            // Създаване на кръгла маска
+            // Създаване на кръгла маска с диаметър точно 182 мм
             ctx.save();
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
             ctx.closePath();
             ctx.clip();
     
-            // Рисуване на изображението така, че да запълни кръгът
+            // Рисуване на изображението така, че да запълни кръга
+            // (ако е необходимо може да се добави допълнително изчисление за мащабиране/центриране)
             ctx.drawImage(img, centerX - radius, centerY - radius, diameter, diameter);
             ctx.restore();
     
@@ -146,5 +150,4 @@ document.addEventListener('DOMContentLoaded', function() {
         reader.readAsDataURL(file);
       });
     }
-  });
-  
+  });  
