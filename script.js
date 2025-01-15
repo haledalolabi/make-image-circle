@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', function () {
     ['dragenter', 'dragover'].forEach(eventName => {
       dropArea.addEventListener(eventName, () => dropArea.classList.add('hover'), false);
     });
-  
     ['dragleave', 'drop'].forEach(eventName => {
       dropArea.addEventListener(eventName, () => dropArea.classList.remove('hover'), false);
     });
@@ -60,7 +59,9 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       startProcessing();
       try {
-        await processImagesSequentially();
+        // Примерно ограничаваме едновременната обработка до 5 задачи
+        const concurrencyLimit = 5;
+        await processImagesWithConcurrencyLimit(concurrencyLimit);
       } catch (err) {
         console.error("Грешка при обработката:", err);
         alert("Възникна грешка при обработката.");
@@ -73,30 +74,30 @@ document.addEventListener('DOMContentLoaded', function () {
       processBtn.disabled = true;
       processBtn.innerHTML = '<span class="spinner"></span> Обработване...';
     }
-  
     function endProcessing() {
       processBtn.disabled = false;
       processBtn.innerHTML = 'Обработи снимките';
     }
   
-    // Обработка на изображенията последователно
-    async function processImagesSequentially() {
+    /**
+     * Функция, която обработва изображенията с ограничен брой едновременни задачи.
+     * @param {number} limit - Максимален брой паралелно изпълнявани задачи.
+     */
+    async function processImagesWithConcurrencyLimit(limit) {
       const zip = new JSZip();
   
-      // Работим при 600 DPI за високо качество за печат
+      // Настройки: 600 DPI за печат
       const DPI = 600;
-      // Изчисляване на размера на A4 (210 x 297 мм) в пиксели
       const A4_WIDTH = Math.round(210 * (DPI / 25.4));
       const A4_HEIGHT = Math.round(297 * (DPI / 25.4));
-      // Пресмятаме диаметъра за 180 мм в пиксели
       const MM_TO_PX = DPI / 25.4;
       const diameter = Math.round(180 * MM_TO_PX);
       const radius = diameter / 2;
       const centerX = A4_WIDTH / 2;
       const centerY = A4_HEIGHT / 2;
   
-      // Обработваме всяко изображение едно по едно.
-      for (const file of filesArray) {
+      // Създаваме списък от функции, които връщат промиси за обработка на всяко изображение
+      const tasks = filesArray.map(file => async () => {
         try {
           const dataUrl = await processSingleImage(
             file,
@@ -111,16 +112,26 @@ document.addEventListener('DOMContentLoaded', function () {
           if (baseName.lastIndexOf('.') > 0) {
             baseName = baseName.substring(0, baseName.lastIndexOf('.'));
           }
-          zip.file("modified_" + baseName + ".png", dataUrl.split(',')[1], { base64: true });
-  
-          // Изчакване малко време за "отдих" на процесора (опционално)
-          await new Promise(resolve => setTimeout(resolve, 10));
+          // Връщаме обект, който съдържа името и генерирания dataUrl
+          return { name: "modified_" + baseName + ".png", dataUrl };
         } catch (error) {
           console.error("Грешка при обработка на файл:", file.name, error);
+          return null;
         }
-      }
+      });
   
-      // Генерираме ZIP архива след обработка
+      // Използваме пул за ограничаване на едновременните задачи
+      const results = await promisePool(tasks, limit);
+  
+      // Добавяме успешно обработените файлове към zip архива
+      results.forEach(imageData => {
+        if (imageData) {
+          // Заделяме само base64 частта след запетаята
+          zip.file(imageData.name, imageData.dataUrl.split(',')[1], { base64: true });
+        }
+      });
+  
+      // Генерираме и сваляме ZIP архива
       const content = await zip.generateAsync({ type: "blob" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(content);
@@ -128,6 +139,43 @@ document.addEventListener('DOMContentLoaded', function () {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+    }
+  
+    /**
+     * Функция за ограничаване на едновременните промиси.
+     * @param {Array<Function>} tasks - Масив от функции, които връщат промиси.
+     * @param {number} concurrencyLimit - Максимален брой едновременни задачи.
+     * @returns {Promise<Array>} - Промис, който връща резултатите от всички задачи.
+     */
+    async function promisePool(tasks, concurrencyLimit) {
+      const results = [];
+      let currentIndex = 0;
+      const executing = [];
+  
+      const enqueue = async () => {
+        if (currentIndex === tasks.length) {
+          return Promise.resolve();
+        }
+        // Вземаме текущата задача и я увеличаваме индекса
+        const task = tasks[currentIndex++]();
+        results.push(task);
+        // Когато задачата завърши, премахваме я от списъка на изпълняваните
+        const e = task.then(() => {
+          executing.splice(executing.indexOf(e), 1);
+        });
+        executing.push(e);
+  
+        let p = Promise.resolve();
+        if (executing.length >= concurrencyLimit) {
+          // Изчакваме най-бързата завършваща задача, преди да стартираме нова
+          p = Promise.race(executing);
+        }
+        await p;
+        return enqueue();
+      };
+  
+      await enqueue();
+      return Promise.all(results);
     }
   
     // Функция за обработка на едно изображение
@@ -143,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function () {
             canvas.height = A4_HEIGHT;
             const ctx = canvas.getContext('2d');
   
-            // Настройка на висококачествено изглаждане
+            // Включване на висококачествено изглаждане
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
   
@@ -159,14 +207,13 @@ document.addEventListener('DOMContentLoaded', function () {
             ctx.clip();
   
             // Рисуване на изображението така, че да запълни кръга
-            // (ако е необходимо, може да се добави допълнително изчисление за мащабиране/центриране)
             ctx.drawImage(img, centerX - radius, centerY - radius, diameter, diameter);
             ctx.restore();
   
             // Генериране на PNG dataURL
             const dataUrl = canvas.toDataURL("image/png");
   
-            // Почистване: премахване на референции (canvas и img) за GC
+            // Освобождаваме референциите (canvas и img) за GC
             canvas.width = canvas.height = 0;
   
             resolve(dataUrl);
@@ -178,4 +225,5 @@ document.addEventListener('DOMContentLoaded', function () {
         reader.readAsDataURL(file);
       });
     }
-  });  
+  });
+  
