@@ -69,10 +69,11 @@ document.addEventListener('DOMContentLoaded', function () {
       endProcessing();
     });
   
-    // Функции за показване и скриване на лоудинг индикатора
+    // Функции за показване и скриване на лоудинг индикатора / прогреса
     function startProcessing() {
       processBtn.disabled = true;
-      processBtn.innerHTML = '<span class="spinner"></span> Обработване...';
+      // Първоначален надпис с 0% прогрес
+      processBtn.innerHTML = 'Обработени 0 от ' + filesArray.length + ' (0%)';
     }
     function endProcessing() {
       processBtn.disabled = false;
@@ -126,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // Добавяме успешно обработените файлове към zip архива
       results.forEach(imageData => {
         if (imageData) {
-          // Заделяме само base64 частта след запетаята
+          // Запазваме само base64 частта след запетаята
           zip.file(imageData.name, imageData.dataUrl.split(',')[1], { base64: true });
         }
       });
@@ -142,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   
     /**
-     * Функция за ограничаване на едновременните промиси.
+     * Функция за ограничаване на едновременните промиси и показване на прогрес.
      * @param {Array<Function>} tasks - Масив от функции, които връщат промиси.
      * @param {number} concurrencyLimit - Максимален брой едновременни задачи.
      * @returns {Promise<Array>} - Промис, който връща резултатите от всички задачи.
@@ -151,26 +152,36 @@ document.addEventListener('DOMContentLoaded', function () {
       const results = [];
       let currentIndex = 0;
       const executing = [];
+      let completed = 0;
+      const total = tasks.length;
+  
+      // Функция за обновяване на прогреса
+      const updateProgress = () => {
+        const percentage = Math.round((completed / total) * 100);
+        processBtn.innerHTML = `Обработени ${completed} от ${total} (${percentage}%)`;
+      };
   
       const enqueue = async () => {
         if (currentIndex === tasks.length) {
           return Promise.resolve();
         }
-        // Вземаме текущата задача и я увеличаваме индекса
-        const task = tasks[currentIndex++]();
-        results.push(task);
-        // Когато задачата завърши, премахваме я от списъка на изпълняваните
-        const e = task.then(() => {
-          executing.splice(executing.indexOf(e), 1);
+        // Стартираме текущата задача
+        const taskPromise = tasks[currentIndex++]();
+        results.push(taskPromise);
+        const p = taskPromise.then((result) => {
+          completed++;
+          updateProgress();
+          executing.splice(executing.indexOf(p), 1);
+          return result;
         });
-        executing.push(e);
+        executing.push(p);
   
-        let p = Promise.resolve();
+        let next = Promise.resolve();
         if (executing.length >= concurrencyLimit) {
           // Изчакваме най-бързата завършваща задача, преди да стартираме нова
-          p = Promise.race(executing);
+          next = Promise.race(executing);
         }
-        await p;
+        await next;
         return enqueue();
       };
   
@@ -213,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Генериране на PNG dataURL
             const dataUrl = canvas.toDataURL("image/png");
   
-            // Освобождаваме референциите (canvas и img) за GC
+            // Освобождаваме референциите за GC
             canvas.width = canvas.height = 0;
   
             resolve(dataUrl);
