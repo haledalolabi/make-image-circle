@@ -83,9 +83,9 @@ document.addEventListener('DOMContentLoaded', function() {
       // Изчисляване на размера на A4 (210 x 297 мм) в пиксели
       const A4_WIDTH = Math.round(210 * (DPI / 25.4));
       const A4_HEIGHT = Math.round(297 * (DPI / 25.4));
-      // Пресмятаме диаметъра за 182 мм в пиксели
+      // Пресмятаме диаметъра за 180 мм в пиксели
       const MM_TO_PX = DPI / 25.4;
-      const diameter = Math.round(182 * MM_TO_PX);
+      const diameter = Math.round(180 * MM_TO_PX);
       const radius = diameter / 2;
       const centerX = A4_WIDTH / 2;
       const centerY = A4_HEIGHT / 2;
