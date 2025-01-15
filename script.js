@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
             // Пресмятаме диаметъра в пиксели за 175 мм
             const MM_TO_PX = 300 / 25.4;  
-            const diameter = 175 * MM_TO_PX; // фиксиран диаметър от 175 мм (~2067 пиксела)
+            const diameter = 185 * MM_TO_PX; // фиксиран диаметър от 175 мм (~2067 пиксела)
             const radius = diameter / 2;
             const centerX = A4_WIDTH / 2;
             const centerY = A4_HEIGHT / 2;
