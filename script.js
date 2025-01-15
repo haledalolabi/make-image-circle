@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', function () {
     async function processImagesWithConcurrencyLimit(limit) {
       const zip = new JSZip();
   
-      // Настройки: 600 DPI за печат
-      const DPI = 600;
+      // Настройки: 300 DPI за печат
+      const DPI = 300;
       const A4_WIDTH = Math.round(210 * (DPI / 25.4));
       const A4_HEIGHT = Math.round(297 * (DPI / 25.4));
       const MM_TO_PX = DPI / 25.4;
