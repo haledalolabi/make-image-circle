@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Черната рамка ще бъде с дебелина 3mm
     const borderPx = Math.round(1 * MM_TO_PX);
     // Вътрешният кръг, в който се рисува изображението, се получава като се намали радиусът с borderPx
-    const innerRadius = outerRadius - borderPx;
+    const innerRadius = outerRadius - borderPx - Math.round(3 * MM_TO_PX);
     // Центрираме кръга върху A4 листа
     const centerX = A4_WIDTH / 2;
     const centerY = A4_HEIGHT / 2;
