@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Черната рамка ще бъде с дебелина 3mm
     const borderPx = Math.round(1 * MM_TO_PX);
     // Вътрешният кръг, в който се рисува изображението, се получава като се намали радиусът с borderPx
-    const innerRadius = outerRadius - borderPx - Math.round(3 * MM_TO_PX);
+    const innerRadius = outerRadius - borderPx;
     // Центрираме кръга върху A4 листа
     const centerX = A4_WIDTH / 2;
     const centerY = A4_HEIGHT / 2;
@@ -213,46 +213,59 @@ document.addEventListener('DOMContentLoaded', function () {
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          // Създаване на canvas с размери A4
+          // Create canvas for A4 size
           const canvas = document.createElement('canvas');
           canvas.width = A4_WIDTH;
           canvas.height = A4_HEIGHT;
           const ctx = canvas.getContext('2d');
-
-          // Включване на висококачествено изглаждане
+  
+          // Enable high quality smoothing
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-
-          // Запълване с бял фон
+  
+          // Fill with white background
           ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, A4_WIDTH, A4_HEIGHT);
-
-          // Създаване на маска за вътрешния кръг (където ще се постави изображението)
+  
+          // Calculate the white margin in pixels (3mm)
+          const whiteSpacePx = Math.round(3 * (ctx.canvas.width / A4_WIDTH * (300 / 25.4))); // or use MM_TO_PX if available
+          // Alternatively, if MM_TO_PX is in scope:
+          // const whiteSpacePx = Math.round(3 * MM_TO_PX);
+  
+          // Calculate the radius for the image drawing area
+          const imageDrawRadius = innerRadius - whiteSpacePx;
+  
+          // Create a mask for the circle where the image will be drawn
           ctx.save();
           ctx.beginPath();
-          ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+          ctx.arc(centerX, centerY, imageDrawRadius, 0, Math.PI * 2);
           ctx.closePath();
           ctx.clip();
-
-          // Рисуване на изображението така, че да запълни вътрешния кръг
-          ctx.drawImage(img, centerX - innerRadius, centerY - innerRadius, innerRadius * 2, innerRadius * 2);
+  
+          // Draw the image to fill the smaller circle
+          ctx.drawImage(
+            img,
+            centerX - imageDrawRadius,
+            centerY - imageDrawRadius,
+            imageDrawRadius * 2,
+            imageDrawRadius * 2
+          );
           ctx.restore();
-
-          // Рисуване на черната рамка (областта от 3mm около вътрешния кръг)
-          // Избираме централната линия на рамката така, че вътрешният край съвпада с края на изображението
+  
+          // Draw the black border (unchanged)
           const strokeRadius = innerRadius + borderPx / 2;
           ctx.beginPath();
           ctx.arc(centerX, centerY, strokeRadius, 0, Math.PI * 2);
           ctx.strokeStyle = "#000000";
           ctx.lineWidth = borderPx;
           ctx.stroke();
-
-          // Генериране на PNG dataURL
+  
+          // Generate PNG dataURL
           const dataUrl = canvas.toDataURL("image/png");
-
-          // Освобождаваме референциите за GC
+  
+          // Free resources
           canvas.width = canvas.height = 0;
-
+  
           resolve(dataUrl);
         };
         img.onerror = reject;
